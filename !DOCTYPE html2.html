@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Room Wall Color Visualizer</title>
+  <style>
+    body {
+      background: #eaeaea;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .room-container {
+      perspective: 1000px;
+      width: 300px;
+      height: 200px;
+      position: relative;
+      margin-bottom: 20px;
+    }
+
+    .wall {
+      position: absolute;
+      margin-top: 25%;
+      width: 400px;
+      height: 300px;
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.3);
+      transition: background 0.5s ease;
+    }
+
+    .left-wall {
+      transform: rotateY(60deg) translateX(-50%);
+      transform-origin: left;
+    }
+
+    .right-wall {
+      transform: rotateY(-60deg) translateX(50%);
+      transform-origin: right;
+    }
+
+    .back-wall {
+      transform: translateZ(-10px);
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+
+    select, button {
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    button {
+      background: #444;
+      color: white;
+      border: none;
+    }
+
+    button:hover {
+      background: #222;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>🖌️ Room Wall Color Visualizer</h2>
+
+  <div class="controls">
+    <label for="roomSelect">Room:</label>
+    <select id="roomSelect" onchange="loadSchemes()">
+      <option value="hall">Hall (Living Area)</option>
+      <option value="godRoom">God Room</option>
+      <option value="kitchen">Kitchen</option>
+      <option value="bed1">Bedroom 1</option>
+      <option value="bed2">Bedroom 2</option>
+    </select>
+
+    <label for="schemeSelect">Scheme:</label>
+    <select id="schemeSelect"></select>
+
+    <button onclick="applyScheme()">Apply</button>
+    <button onclick="resetRoom()">Reset</button>
+  </div>
+
+  <div id="customInputs" style="display:none; margin-bottom: 15px; text-align: center;">
+    <label>
+      Left Wall:
+      <input type="text" id="leftColor" placeholder="#hex" style="margin-right: 10px;">
+    </label>
+    <label>
+      Back Wall:
+      <input type="text" id="backColor" placeholder="#hex" style="margin-right: 10px;">
+    </label>
+    <label>
+      Right Wall:
+      <input type="text" id="rightColor" placeholder="#hex">
+    </label>
+  </div>
+
+  <div class="room-container">
+    <div class="wall left-wall" id="leftWall"></div>
+    <div class="wall right-wall" id="rightWall"></div>
+    <div class="wall back-wall" id="backWall"></div>
+  </div>
+
+  <script>
+    const leftWall = document.getElementById("leftWall");
+    const rightWall = document.getElementById("rightWall");
+    const backWall = document.getElementById("backWall");
+    const roomSelect = document.getElementById("roomSelect");
+    const schemeSelect = document.getElementById("schemeSelect");
+
+    const roomThemes = {
+      hall: [
+        { name: "CUSTOM", colors: ["#2D2F2F","#C7A17A","#F7F4EF"] },
+        { name: "Repose Gray & Pavestone", colors: ["#CACACA", "#7D8572", "#FFFFFF"] },
+        { name: "Swiss Coffee & Chantilly Lace", colors: ["#DDD6CF", "#F8F4EA", "#F7F4EF"] },
+        { name: "Calm & White Dove", colors: ["#F0ECE3", "#EDEBE7", "#F1EAE0"] },
+        { name: "Coventry Gray & Shaker Beige", colors: ["#9EA3A8", "#CFC5B5", "#F1F0ED"] },
+        { name: "Dolphin & Graystone", colors: ["#B0B1B3", "#A2A49F", "#F0F0EE"] },
+        { name: "Pistachio & Distant Gray", colors: ["#DCE5D8", "#E2E4E3", "#F4F3F2"] },
+        { name: "Grove Green & Swiss Coffee", colors: ["#87977B", "#DDD6CF", "#EBF0EE"] },
+        { name: "Oyster Bay & Distinguished Gold", colors: ["#ACC3B2", "#D3BB87", "#FFFFFF"] },
+        { name: "Solitude & First Light", colors: ["#E1E4E9", "#F3EDE3", "#F0F0EE"] },
+        { name: "Budding Green & Soft Satin", colors: ["#CAD4C5", "#E8E4D9", "#F7F4EF"] }
+      ],
+      godRoom: [
+        { name: "CUSTOM", colors: ["#2D2F2F","#C7A17A","#F7F4EF"] },
+        { name: "Palladian Blue & Calm", colors: ["#AFD3E2","#F0ECE3","#EDEBE7"] },
+        { name: "Aqua Smoke & White Heron", colors: ["#8CA6A8","#EDEBE7","#F7F4EF"] },
+        { name: "Inchyra Blue & Swiss Coffee", colors: ["#627E91","#DDD6CF","#F0ECE3"] },
+        { name: "Oyster Bay & Pure White", colors: ["#ACC3B2","#FFFFFF","#7D8572"] },
+        { name: "Mirror Mirror & Distant Gray", colors: ["#C7C7C7","#E2E4E3","#EDEBE7"] },
+        { name: "Coventry Gray & Angelica", colors: ["#9EA3A8","#CABBB3","#F7F4EF"] },
+        { name: "Budding Green & Calm", colors: ["#CAD4C5","#F0ECE3","#EDEBE7"] },
+        { name: "Blue Arrow & Overcast", colors: ["#7BA9D0","#D4D5D4","#F5F4EB"] },
+        { name: "Pale Pistachio & Cloud White", colors: ["#DCE5D8","#F0EFEF","#EDEBE7"] },
+        { name: "Graystone & Dolphin", colors: ["#A2A49F","#B0B1B3","#F1EAE0"] }
+      ],
+      kitchen: [
+        { name: "CUSTOM", colors: ["#2D2F2F","#C7A17A","#F7F4EF"] },
+        { name: "Oyster Bay & Pavestone", colors: ["#ACC3B2","#7D8572","#FFFFFF"] },
+        { name: "Coventry Gray & Shaker Beige", colors: ["#9EA3A8","#CFC5B5","#F1F0ED"] },
+        { name: "Calm & White Heron", colors: ["#F0ECE3","#EDEBE7","#F7F4EF"] },
+        { name: "Dolphin & Cloud White", colors: ["#B0B1B3","#F0EFEF","#F1EAE0"] },
+        { name: "Soft Satin & Budding Green", colors: ["#E8E4D9","#CAD4C5","#F7F4EF"] },
+        { name: "Oyster Bay & Graystone", colors: ["#ACC3B2","#A2A49F","#FFFFFF"] },
+        { name: "Pistachio & Distant Gray", colors: ["#DCE5D8","#E2E4E3","#F4F3F2"] },
+        { name: "Grove Green & Swiss Coffee", colors: ["#87977B","#DDD6CF","#EBF0EE"] },
+        { name: "Mirror Mirror & First Light", colors: ["#C7C7C7","#F3EDE3","#F0F0EE"] },
+        { name: "Black Jack & Cedar Path", colors: ["#2D2F2F","#C7A17A","#F7F4EF"] }
+      ],
+      bed1: [
+        { name: "CUSTOM", colors: ["#2D2F2F","#C7A17A","#F7F4EF"] },
+        { name: "Oval Room Blue & Swiss Coffee", colors: ["#6B8DB8","#DDD6CF","#F7F4EF"] },
+        { name: "Pale Pistachio & White Heron", colors: ["#DCE5D8","#EDEBE7","#F0EFEF"] },
+        { name: "Calm & Shaker Beige", colors: ["#F0ECE3","#CFC5B5","#EDEBE7"] },
+        { name: "Coventry Gray & Angelica", colors: ["#9EA3A8","#CABBB3","#F7F4EF"] },
+        { name: "Budding Green & Soft Satin", colors: ["#CAD4C5","#E8E4D9","#F7F4EF"] },
+        { name: "Inchyra Blue & White Dove", colors: ["#627E91","#EDEBE7","#F1EAE0"] },
+        { name: "Dolphin & Graystone", colors: ["#B0B1B3","#A2A49F","#F0EFEF"] },
+        { name: "Oyster Bay & Pavestone", colors: ["#ACC3B2","#7D8572","#FFFFFF"] },
+        { name: "Grove Green & Swiss Coffee", colors: ["#87977B","#DDD6CF","#EBF0EE"] },
+        { name: "Black Jack & Cedar Path", colors: ["#2D2F2F","#C7A17A","#F7F4EF"] }
+      ],
+      bed2: [
+        { name: "CUSTOM", colors: ["#2D2F2F","#C7A17A","#F7F4EF"] },
+        { name: "Winter in Paris & Oyster Bay", colors: ["#B0C2D4","#ACC3B2","#FFFFFF"] },
+        { name: "Solitude & First Light", colors: ["#E1E4E9","#F3EDE3","#F0F0EE"] },
+        { name: "Calm & White Heron", colors: ["#F0ECE3","#EDEBE7","#F7F4EF"] },
+        { name: "Pistachio & Distant Gray", colors: ["#DCE5D8","#E2E4E3","#F4F3F2"] },
+        { name: "Grove Green & Swiss Coffee", colors: ["#87977B","#DDD6CF","#EBF0EE"] },
+        { name: "Coventry Gray & Angelica", colors: ["#9EA3A8","#CABBB3","#F7F4EF"] },
+        { name: "Budding Green & Soft Satin", colors: ["#CAD4C5","#E8E4D9","#F7F4EF"] },
+        { name: "Inchyra Blue & White Dove", colors: ["#627E91","#EDEBE7","#F1EAE0"] },
+        { name: "Oyster Bay & Pavestone", colors: ["#ACC3B2","#7D8572","#FFFFFF"] },
+        { name: "Black Jack & Cedar Path", colors: ["#2D2F2F","#C7A17A","#F7F4EF"] }
+      ]
+    };
+
+    function loadSchemes() {
+      const room = roomSelect.value;
+      schemeSelect.innerHTML = "";
+      roomThemes[room].forEach((s, idx) => {
+        const opt = document.createElement("option");
+        opt.value = idx;
+        opt.textContent = s.name;
+        schemeSelect.append(opt);
+      });
+      resetRoom();
+    }
+
+    function applyScheme() {
+      const room = roomSelect.value;
+      const schemeIndex = schemeSelect.value;
+      const scheme = roomThemes[room][schemeIndex];
+
+      if (scheme.name === "CUSTOM") {
+        const l = document.getElementById("leftColor").value || "#e0e0e0";
+        const b = document.getElementById("backColor").value || "#e0e0e0";
+        const r = document.getElementById("rightColor").value || "#e0e0e0";
+        leftWall.style.background = l;
+        backWall.style.background = b;
+        rightWall.style.background = r;
+      } else {
+        leftWall.style.background = scheme.colors[0];
+        backWall.style.background = scheme.colors[1];
+        rightWall.style.background = scheme.colors[2];
+      }
+    }
+
+    function resetRoom() {
+      leftWall.style.background = "#e0e0e0";
+      backWall.style.background = "#e0e0e0";
+      rightWall.style.background = "#e0e0e0";
+    }
+
+    // Initialize with hall schemes
+    loadSchemes();
+    schemeSelect.onchange = function () {
+      const selectedScheme = roomThemes[roomSelect.value][schemeSelect.value];
+      document.getElementById("customInputs").style.display =
+        selectedScheme.name === "CUSTOM" ? "block" : "none";
+    };
+    schemeSelect.dispatchEvent(new Event('change')); // trigger initial toggle
+  </script>
+</body>
+</html>
